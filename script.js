@@ -84,6 +84,46 @@ async function getNextInvoiceNumber() {
     }
 }
 
+// Autocompletar datos del cliente por NIF
+async function autofillClientData() {
+    const nifInput = document.getElementById('clientNIF');
+    const nif = nifInput.value.trim();
+    
+    if (nif.length < 8) return; // Esperar a que tenga al menos 8 caracteres
+
+    try {
+        // Buscar en Baserow si existe este NIF
+        const response = await fetch(
+            `${CONFIG.baserow.apiURL}/api/database/rows/table/${CONFIG.baserow.tableID}/?user_field_names=true&search=${nif}`,
+            {
+                headers: {
+                    'Authorization': `Token ${CONFIG.baserow.apiToken}`
+                }
+            }
+        );
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        
+        if (data.results && data.results.length > 0) {
+            // Encontramos el cliente, autocompletar
+            const client = data.results.find(row => row['NIF'] === nif);
+            if (client) {
+                document.getElementById('clientName').value = client['Cliente'] || '';
+                document.getElementById('clientAddress').value = client['Direccion'] || '';
+                document.getElementById('clientEmail').value = client['Email'] || '';
+                showStatus('✅ Cliente encontrado. Datos autocompletados.', 'success');
+                setTimeout(() => {
+                    document.getElementById('statusMessage').style.display = 'none';
+                }, 3000);
+            }
+        }
+    } catch (error) {
+        console.log('No se pudo buscar el cliente:', error);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Generar número de factura automáticamente
     const invoiceNumber = await getNextInvoiceNumber();
@@ -93,6 +133,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Event listeners
     document.getElementById('extractBtn').addEventListener('click', extractTextFromImage);
     document.getElementById('invoiceForm').addEventListener('submit', handleFormSubmit);
+    
+    // Autocompletar al escribir NIF
+    document.getElementById('clientNIF').addEventListener('blur', autofillClientData);
 });
 
 // ============================================
@@ -162,12 +205,9 @@ async function extractTextFromImage() {
         extractBtn.disabled = true;
         document.querySelector('.progress-text').textContent = 'Procesando imagen...';
 
-        // Convertir imagen a base64
-        const base64Image = await fileToBase64(imageFile);
-
-        // Llamar a OCR.space API
+        // Llamar a OCR.space API enviando el archivo directamente
         const formData = new FormData();
-        formData.append('base64Image', base64Image);  // Enviar el base64 completo con prefijo
+        formData.append('file', imageFile);  // Enviar archivo directamente
         formData.append('language', 'spa');
         formData.append('isOverlayRequired', 'false');
         formData.append('apikey', CONFIG.ocrApiKey);
@@ -209,15 +249,6 @@ async function extractTextFromImage() {
     }
 }
 
-// Convertir archivo a base64
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
-    });
-}
 
 // ============================================
 // GENERACIÓN DE PDF CON jsPDF
@@ -336,9 +367,6 @@ function generateInvoicePDF(data) {
 
 async function sendInvoiceByEmail(pdfDoc, data) {
     try {
-        // Convertir PDF a Blob
-        const pdfBlob = pdfDoc.output('blob');
-
         // Crear FormData
         const formData = new FormData();
         formData.append('access_key', CONFIG.web3formsKey);
@@ -347,16 +375,26 @@ async function sendInvoiceByEmail(pdfDoc, data) {
         formData.append('email', data.clientEmail);  // Email del cliente (destinatario)
         formData.append('name', data.clientName);
         
-        // Mensaje del email
+        // Calcular total con IVA
+        const iva = (parseFloat(data.amount) * 0.21).toFixed(2);
+        const total = (parseFloat(data.amount) + parseFloat(iva)).toFixed(2);
+        
+        // Mensaje del email (SIN ADJUNTO)
         const message = `
 Estimado/a ${data.clientName},
 
-Adjuntamos la factura número ${data.invoiceNumber} con fecha ${data.date}.
+Se ha generado la factura número ${data.invoiceNumber} con fecha ${data.date}.
 
-Detalles:
-- Número de Factura: ${data.invoiceNumber}
-- Importe: ${data.amount}€
-- Concepto: ${data.description || 'Servicios prestados'}
+Detalles de la factura:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Número: ${data.invoiceNumber}
+Concepto: ${data.description || 'Servicios prestados'}
+Base Imponible: ${data.amount}€
+IVA (21%): ${iva}€
+TOTAL: ${total}€
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+El PDF de la factura se ha descargado automáticamente en su navegador.
 
 Saludos cordiales,
 ${CONFIG.company.name}
@@ -365,11 +403,8 @@ ${CONFIG.company.phone}
         `;
         
         formData.append('message', message);
-        
-        // Adjuntar PDF
-        formData.append('attachment', pdfBlob, `Factura_${data.invoiceNumber}.pdf`);
 
-        // Enviar email
+        // Enviar email (SIN ADJUNTO para evitar cobro)
         const response = await fetch('https://api.web3forms.com/submit', {
             method: 'POST',
             body: formData
@@ -407,6 +442,7 @@ async function saveToBaserow(data) {
                     'Fecha': data.date,
                     'Cliente': data.clientName,
                     'NIF': data.clientNIF,
+                    'Direccion': data.clientAddress,
                     'Email': data.clientEmail,
                     'Importe': parseFloat(data.amount),
                     'Total con IVA': parseFloat(data.amount) * 1.21,
