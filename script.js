@@ -5,16 +5,16 @@
 const CONFIG = {
     // EmailJS - Obtén estos valores de https://www.emailjs.com/
     emailjs: {
-        serviceID:'service_ghupet9',      // Ej: 'service_abc123'
-        templateID:'template_qwfj1lw',    // Ej: 'template_xyz789'
-        userID:'_Boe_Y0g_Eh7f5UzK'         // Ej: 'user_xyz123abc456'
+        serviceID: 'service_ghupet9',      // Ej: 'service_abc123'
+        templateID: 'template_qwfj1lw',    // Ej: 'template_xyz789'
+        userID: '_Boe_Y0g_Eh7f5UzK'         // Ej: 'user_xyz123abc456'
     },
     
     // Baserow - Obtén estos valores de tu cuenta Baserow
     baserow: {
-        apiToken:'OC1ysglrfe1Ehk2xtFjmSWK6joU3RWHo',        // Ej: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-        tableID:'722224',          // Ej: '12345'
-        apiURL:'https://api.baserow.io' // URL base de la API
+        apiToken: 'OC1ysglrfe1Ehk2xtFjmSWK6joU3RWHo',        // Ej: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+        tableID: '722224',          // Ej: '12345'
+        apiURL: 'https://api.baserow.io' // URL base de la API
     },
 
     // Datos de tu empresa (para la factura)
