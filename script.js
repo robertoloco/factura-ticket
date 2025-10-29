@@ -4,10 +4,10 @@
 
 const CONFIG = {
     // OCR.space API - Obtén tu API key gratis en https://ocr.space/ocrapi
-    ocrApiKey: 'K88796806988957',  // API Key gratuita (25,000 requests/mes)
+    ocrApiKey: 'K84401806388957',  // API Key gratuita (25,000 requests/mes)
     
     // Web3Forms - Obtén tu Access Key gratis en https://web3forms.com
-    web3formsKey: 'TU_WEB3FORMS_ACCESS_KEY',  // Reemplaza con tu Access Key
+    web3formsKey: '1e2404a9-8e95-4f07-9150-7614624d90f8',  // Reemplaza con tu Access Key
     
     // Baserow - Obtén estos valores de tu cuenta Baserow
     baserow: {
