@@ -3,18 +3,17 @@
 // ============================================
 
 const CONFIG = {
-    // EmailJS - Obtén estos valores de https://www.emailjs.com/
-    emailjs: {
-        serviceID: 'service_ghupet9',      // Ej: 'service_abc123'
-        templateID: 'template_qwfj1lw',    // Ej: 'template_xyz789'
-        userID: '_Boe_Y0g_Eh7f5UzK'         // Ej: 'user_xyz123abc456'
-    },
+    // OCR.space API - Obtén tu API key gratis en https://ocr.space/ocrapi
+    ocrApiKey: 'K88796806988957',  // API Key gratuita (25,000 requests/mes)
+    
+    // Web3Forms - Obtén tu Access Key gratis en https://web3forms.com
+    web3formsKey: 'TU_WEB3FORMS_ACCESS_KEY',  // Reemplaza con tu Access Key
     
     // Baserow - Obtén estos valores de tu cuenta Baserow
     baserow: {
-        apiToken: 'OC1ysglrfe1Ehk2xtFjmSWK6joU3RWHo',        // Ej: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-        tableID: '722224',          // Ej: '12345'
-        apiURL: 'https://api.baserow.io' // URL base de la API
+        apiToken: 'OC1ysglrfe1Ehk2xtFjmSWK6joU3RWHo',
+        tableID: '722224',
+        apiURL: 'https://api.baserow.io'
     },
 
     // Datos de tu empresa (para la factura)
@@ -86,9 +85,6 @@ async function getNextInvoiceNumber() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Inicializar EmailJS
-    emailjs.init(CONFIG.emailjs.userID);
-
     // Generar número de factura automáticamente
     const invoiceNumber = await getNextInvoiceNumber();
     document.getElementById('invoiceNumber').value = invoiceNumber;
@@ -100,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ============================================
-// EXTRACCIÓN DE TEXTO CON TESSERACT.js (OCR)
+// EXTRACCIÓN DE TEXTO CON OCR.space API
 // ============================================
 
 function parseOCRText(text) {
@@ -164,39 +160,45 @@ async function extractTextFromImage() {
         ocrProgress.style.display = 'block';
         ocrResult.classList.remove('active');
         extractBtn.disabled = true;
+        document.querySelector('.progress-text').textContent = 'Procesando imagen...';
 
-        // Ejecutar OCR
-        const result = await Tesseract.recognize(
-            imageFile,
-            'spa', // Idioma español
-            {
-                logger: (m) => {
-                    console.log(m);
-                    if (m.status === 'recognizing text') {
-                        const percent = Math.round(m.progress * 100);
-                        document.querySelector('.progress-text').textContent = 
-                            `Procesando imagen... ${percent}%`;
-                    }
-                }
+        // Convertir imagen a base64
+        const base64Image = await fileToBase64(imageFile);
+
+        // Llamar a OCR.space API
+        const formData = new FormData();
+        formData.append('base64Image', base64Image.split(',')[1]);
+        formData.append('language', 'spa');
+        formData.append('isOverlayRequired', 'false');
+        formData.append('apikey', CONFIG.ocrApiKey);
+
+        const response = await fetch('https://api.ocr.space/parse/image', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (!result.IsErroredOnProcessing && result.ParsedResults && result.ParsedResults[0]) {
+            extractedText = result.ParsedResults[0].ParsedText;
+
+            // Mostrar resultado
+            ocrResult.textContent = extractedText || 'No se pudo extraer texto de la imagen';
+            ocrResult.classList.add('active');
+
+            // Auto-rellenar campos del formulario
+            const parsed = parseOCRText(extractedText);
+            if (parsed.amount) {
+                document.getElementById('amount').value = parsed.amount;
             }
-        );
+            if (parsed.description) {
+                document.getElementById('description').value = parsed.description;
+            }
 
-        extractedText = result.data.text;
-
-        // Mostrar resultado
-        ocrResult.textContent = extractedText || 'No se pudo extraer texto de la imagen';
-        ocrResult.classList.add('active');
-
-        // Auto-rellenar campos del formulario
-        const parsed = parseOCRText(extractedText);
-        if (parsed.amount) {
-            document.getElementById('amount').value = parsed.amount;
+            showStatus('Texto extraído y campos autocompletados. Verifica los datos.', 'success');
+        } else {
+            throw new Error(result.ErrorMessage || 'Error en el procesamiento OCR');
         }
-        if (parsed.description) {
-            document.getElementById('description').value = parsed.description;
-        }
-
-        showStatus('Texto extraído y campos autocompletados. Verifica los datos.', 'success');
 
     } catch (error) {
         console.error('Error en OCR:', error);
@@ -205,6 +207,16 @@ async function extractTextFromImage() {
         ocrProgress.style.display = 'none';
         extractBtn.disabled = false;
     }
+}
+
+// Convertir archivo a base64
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
 }
 
 // ============================================
@@ -319,31 +331,55 @@ function generateInvoicePDF(data) {
 }
 
 // ============================================
-// ENVÍO DE EMAIL CON EmailJS
+// ENVÍO DE EMAIL CON Web3Forms
 // ============================================
 
 async function sendInvoiceByEmail(pdfDoc, data) {
     try {
-        // Convertir PDF a base64
-        const pdfBase64 = pdfDoc.output('dataurlstring').split(',')[1];
+        // Convertir PDF a Blob
+        const pdfBlob = pdfDoc.output('blob');
 
-        // Parámetros para EmailJS
-        const templateParams = {
-            to_name: data.clientName,           // Nombre del destinatario
-            to_email: data.clientEmail,         // Email del destinatario
-            from_name: CONFIG.company.name,     // Tu empresa
-            invoice_number: data.invoiceNumber,
-            amount: data.amount,
-            date: data.date,
-            message: `Adjuntamos factura ${data.invoiceNumber} por importe de ${data.amount}€`
-        };
+        // Crear FormData
+        const formData = new FormData();
+        formData.append('access_key', CONFIG.web3formsKey);
+        formData.append('subject', `Factura ${data.invoiceNumber} - ${CONFIG.company.name}`);
+        formData.append('from_name', CONFIG.company.name);
+        formData.append('email', data.clientEmail);  // Email del cliente (destinatario)
+        formData.append('name', data.clientName);
+        
+        // Mensaje del email
+        const message = `
+Estimado/a ${data.clientName},
+
+Adjuntamos la factura número ${data.invoiceNumber} con fecha ${data.date}.
+
+Detalles:
+- Número de Factura: ${data.invoiceNumber}
+- Importe: ${data.amount}€
+- Concepto: ${data.description || 'Servicios prestados'}
+
+Saludos cordiales,
+${CONFIG.company.name}
+${CONFIG.company.email}
+${CONFIG.company.phone}
+        `;
+        
+        formData.append('message', message);
+        
+        // Adjuntar PDF
+        formData.append('attachment', pdfBlob, `Factura_${data.invoiceNumber}.pdf`);
 
         // Enviar email
-        await emailjs.send(
-            CONFIG.emailjs.serviceID,
-            CONFIG.emailjs.templateID,
-            templateParams
-        );
+        const response = await fetch('https://api.web3forms.com/submit', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.message || 'Error al enviar el email');
+        }
 
         return true;
     } catch (error) {

@@ -4,10 +4,12 @@ Aplicación web para generar facturas automáticamente a partir de tickets usand
 
 ## 🚀 Características
 
-- ✅ **OCR de Tickets**: Extrae texto de imágenes de tickets usando Tesseract.js
+- ✅ **OCR de Tickets**: Extrae texto de imágenes con OCR.space API (25,000 requests/mes gratis)
 - ✅ **Generación de PDF**: Crea facturas profesionales en PDF con jsPDF
-- ✅ **Envío por Email**: Envía facturas automáticamente usando EmailJS
+- ✅ **Envío por Email**: Envía facturas con PDF adjunto usando Web3Forms (GRATIS, ilimitado)
 - ✅ **Base de Datos**: Guarda registros en Baserow (alternativa open-source a Airtable)
+- ✅ **Numeración Automática**: Números de factura correlativos generados automáticamente
+- ✅ **Autocompletado**: El OCR rellena automáticamente importe y concepto
 - ✅ **Sin Backend**: 100% cliente, funciona en navegador
 - ✅ **GitHub Pages**: Listo para desplegar en GitHub Pages
 
@@ -34,53 +36,41 @@ git clone https://github.com/TU_USUARIO/factura-ticket.git
 cd factura-ticket
 ```
 
-### 2. Descargar las librerías
+### 2. Configurar servicios externos
 
-Ejecuta estos comandos en PowerShell desde el directorio del proyecto:
+Necesitas configurar tres servicios (todos gratuitos):
 
-```powershell
-# Descargar Tesseract.js
-Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" -OutFile "libs/tesseract.min.js"
+## ⛙️ Configuración
 
-# Descargar jsPDF
-Invoke-WebRequest -Uri "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" -OutFile "libs/jspdf.umd.min.js"
+### 1️⃣ OCR.space API (OCR gratuito)
 
-# Descargar EmailJS
-Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" -OutFile "libs/email.min.js"
-```
+✅ **Ya está configurado** - La aplicación usa una API key gratuita que ya viene incluida.
 
-### 3. Configurar servicios externos
+- **Límite**: 25,000 requests/mes
+- **Velocidad**: 3-5 segundos por imagen
+- **Idioma**: Español configurado automáticamente
 
-Necesitas configurar tres servicios:
+Si quieres tu propia API key (opcional):
+1. Ve a https://ocr.space/ocrapi
+2. Registra tu email
+3. Recibirás tu API key gratuita
+4. Reemplázala en `script.js` línea 7
 
-## ⚙️ Configuración
+### 2️⃣ Web3Forms (Envío de emails con PDF)
 
-### 📧 EmailJS (Envío de correos)
+1. Ve a https://web3forms.com/
+2. Escribe tu email en "Your Email"
+3. Haz clic en "Get Access Key"
+4. Recibirás un email con tu Access Key
+5. Copia el Access Key (formato: `abcd1234-5678-90ef-ghij-klmnopqrstuv`)
 
-1. Crea una cuenta en [EmailJS](https://www.emailjs.com/)
-2. Crea un **Service** (Gmail, Outlook, etc.)
-3. Crea un **Email Template** con estos parámetros:
-   - `{{to_email}}` - Email del cliente
-   - `{{client_name}}` - Nombre del cliente
-   - `{{invoice_number}}` - Número de factura
-   - `{{amount}}` - Importe
-   - `{{date}}` - Fecha
-4. Obtén tus credenciales:
-   - **Service ID**: En la sección "Email Services"
-   - **Template ID**: En la sección "Email Templates"
-   - **Public Key**: En "Account" → "General"
+📄 **Lee el archivo `WEB3FORMS_CONFIG.md` para instrucciones detalladas**
 
-**Ejemplo de plantilla EmailJS:**
-```
-Asunto: Factura {{invoice_number}}
-
-Estimado/a {{client_name}},
-
-Adjuntamos la factura número {{invoice_number}} con fecha {{date}}.
-Importe: {{amount}}€
-
-Gracias por su confianza.
-```
+**Características:**
+- ✅ Completamente GRATIS e ilimitado
+- ✅ Soporta adjuntos de PDF (hasta 5MB)
+- ✅ Super fácil de configurar (solo 1 minuto)
+- ✅ No requiere templates complejos
 
 ### 🗄️ Baserow (Base de datos)
 
@@ -161,9 +151,9 @@ La aplicación:
 ## 🛠️ Tecnologías
 
 - **HTML5, CSS3, JavaScript** (Vanilla)
-- **Tesseract.js** v5 - OCR
+- **OCR.space API** - OCR gratuito y rápido
 - **jsPDF** v2.5.1 - Generación de PDF
-- **EmailJS** v4 - Envío de emails
+- **Web3Forms** - Envío de emails con adjuntos (GRATIS)
 - **Baserow API** - Base de datos
 
 ## 🔒 Seguridad
