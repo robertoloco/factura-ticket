@@ -37,9 +37,62 @@ let extractedText = '';
 // INICIALIZACIÓN
 // ============================================
 
-document.addEventListener('DOMContentLoaded', () => {
+async function getNextInvoiceNumber() {
+    try {
+        // Obtener todas las facturas de Baserow
+        const response = await fetch(
+            `${CONFIG.baserow.apiURL}/api/database/rows/table/${CONFIG.baserow.tableID}/?user_field_names=true`,
+            {
+                headers: {
+                    'Authorization': `Token ${CONFIG.baserow.apiToken}`
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error('No se pudo obtener facturas');
+        }
+
+        const data = await response.json();
+        const year = new Date().getFullYear();
+
+        // Buscar el último número de factura del año actual
+        let maxNumber = 0;
+        const pattern = new RegExp(`^${year}-(\\d+)$`);
+        
+        if (data.results && data.results.length > 0) {
+            for (const row of data.results) {
+                const invoiceNum = row['Numero Factura'];
+                const match = invoiceNum ? invoiceNum.match(pattern) : null;
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (num > maxNumber) {
+                        maxNumber = num;
+                    }
+                }
+            }
+        }
+
+        // Generar siguiente número
+        const nextNum = (maxNumber + 1).toString().padStart(3, '0');
+        return `${year}-${nextNum}`;
+    } catch (error) {
+        console.error('Error generando número de factura:', error);
+        // Fallback: generar basado en timestamp
+        const year = new Date().getFullYear();
+        const timestamp = Date.now().toString().slice(-3);
+        return `${year}-${timestamp}`;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
     // Inicializar EmailJS
     emailjs.init(CONFIG.emailjs.userID);
+
+    // Generar número de factura automáticamente
+    const invoiceNumber = await getNextInvoiceNumber();
+    document.getElementById('invoiceNumber').value = invoiceNumber;
+    document.getElementById('invoiceNumber').readOnly = true;
 
     // Event listeners
     document.getElementById('extractBtn').addEventListener('click', extractTextFromImage);
@@ -49,6 +102,49 @@ document.addEventListener('DOMContentLoaded', () => {
 // ============================================
 // EXTRACCIÓN DE TEXTO CON TESSERACT.js (OCR)
 // ============================================
+
+function parseOCRText(text) {
+    // Buscar importe (total, importe, precio, etc.)
+    const amountPatterns = [
+        /total[:\s]*([0-9]+[,.]?[0-9]*)/i,
+        /importe[:\s]*([0-9]+[,.]?[0-9]*)/i,
+        /precio[:\s]*([0-9]+[,.]?[0-9]*)/i,
+        /([0-9]+[,.]?[0-9]*)\s*€/,
+        /€\s*([0-9]+[,.]?[0-9]*)/,
+        /\b([0-9]+[,.]?[0-9]*)\b/g  // Último recurso: cualquier número
+    ];
+
+    let amount = '';
+    for (const pattern of amountPatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+            amount = match[1].replace(',', '.');
+            break;
+        }
+    }
+
+    // Si no encontramos importe con patrones específicos, buscar el número más grande
+    if (!amount) {
+        const numbers = text.match(/\b([0-9]+[,.]?[0-9]*)\b/g);
+        if (numbers && numbers.length > 0) {
+            // Convertir y buscar el más grande (probablemente el total)
+            const parsed = numbers.map(n => parseFloat(n.replace(',', '.')));
+            amount = Math.max(...parsed).toString();
+        }
+    }
+
+    // Extraer texto como concepto (primeras líneas que no sean números)
+    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    let description = '';
+    for (const line of lines) {
+        if (line.length > 3 && !/^[0-9€.,\s]+$/.test(line)) {
+            description = line.trim();
+            break;
+        }
+    }
+
+    return { amount, description };
+}
 
 async function extractTextFromImage() {
     const fileInput = document.getElementById('ticketImage');
@@ -91,7 +187,16 @@ async function extractTextFromImage() {
         ocrResult.textContent = extractedText || 'No se pudo extraer texto de la imagen';
         ocrResult.classList.add('active');
 
-        showStatus('Texto extraído correctamente. Revisa los datos y rellena el formulario.', 'success');
+        // Auto-rellenar campos del formulario
+        const parsed = parseOCRText(extractedText);
+        if (parsed.amount) {
+            document.getElementById('amount').value = parsed.amount;
+        }
+        if (parsed.description) {
+            document.getElementById('description').value = parsed.description;
+        }
+
+        showStatus('Texto extraído y campos autocompletados. Verifica los datos.', 'success');
 
     } catch (error) {
         console.error('Error en OCR:', error);
@@ -224,13 +329,13 @@ async function sendInvoiceByEmail(pdfDoc, data) {
 
         // Parámetros para EmailJS
         const templateParams = {
-            to_email: data.clientEmail,
-            client_name: data.clientName,
+            to_name: data.clientName,           // Nombre del destinatario
+            to_email: data.clientEmail,         // Email del destinatario
+            from_name: CONFIG.company.name,     // Tu empresa
             invoice_number: data.invoiceNumber,
             amount: data.amount,
             date: data.date,
-            pdf_attachment: pdfBase64,
-            pdf_filename: `Factura_${data.invoiceNumber}.pdf`
+            message: `Adjuntamos factura ${data.invoiceNumber} por importe de ${data.amount}€`
         };
 
         // Enviar email

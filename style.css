@@ -137,6 +137,13 @@ main {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.form-group input[readonly] {
+    background-color: #f0f0f0;
+    color: #666;
+    cursor: not-allowed;
+    border-color: #ccc;
+}
+
 .ocr-result {
     margin-top: 20px;
     padding: 15px;
