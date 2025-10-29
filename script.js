@@ -222,10 +222,6 @@ async function extractTextFromImage() {
         if (!result.IsErroredOnProcessing && result.ParsedResults && result.ParsedResults[0]) {
             extractedText = result.ParsedResults[0].ParsedText;
 
-            // Mostrar resultado
-            ocrResult.textContent = extractedText || 'No se pudo extraer texto de la imagen';
-            ocrResult.classList.add('active');
-
             // Auto-rellenar campos del formulario
             const parsed = parseOCRText(extractedText);
             if (parsed.amount) {
@@ -235,7 +231,11 @@ async function extractTextFromImage() {
                 document.getElementById('description').value = parsed.description;
             }
 
-            showStatus('Texto extraído y campos autocompletados. Verifica los datos.', 'success');
+            // Mostrar mensaje de éxito
+            showStatus('✅ Datos extraídos correctamente del ticket. Verifica el importe y concepto.', 'success');
+            setTimeout(() => {
+                document.getElementById('statusMessage').style.display = 'none';
+            }, 4000);
         } else {
             throw new Error(result.ErrorMessage || 'Error en el procesamiento OCR');
         }
