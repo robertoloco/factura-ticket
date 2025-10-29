@@ -167,7 +167,7 @@ async function extractTextFromImage() {
 
         // Llamar a OCR.space API
         const formData = new FormData();
-        formData.append('base64Image', base64Image.split(',')[1]);
+        formData.append('base64Image', base64Image);  // Enviar el base64 completo con prefijo
         formData.append('language', 'spa');
         formData.append('isOverlayRequired', 'false');
         formData.append('apikey', CONFIG.ocrApiKey);
