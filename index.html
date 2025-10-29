@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Facturas</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📄 Generador de Facturas</h1>
+            <p>Sube un ticket, extrae datos y genera facturas automáticamente</p>
+        </header>
+
+        <main>
+            <!-- Sección de carga de ticket -->
+            <section class="card">
+                <h2>1. Subir Ticket</h2>
+                <div class="upload-area">
+                    <input type="file" id="ticketImage" accept="image/*" />
+                    <button id="extractBtn" class="btn btn-primary">Extraer Texto con OCR</button>
+                </div>
+                <div id="ocrResult" class="ocr-result"></div>
+                <div id="ocrProgress" class="progress-bar" style="display: none;">
+                    <div class="progress-fill"></div>
+                    <span class="progress-text">Procesando imagen...</span>
+                </div>
+            </section>
+
+            <!-- Formulario de datos del cliente -->
+            <section class="card">
+                <h2>2. Datos del Cliente</h2>
+                <form id="invoiceForm">
+                    <div class="form-group">
+                        <label for="clientName">Nombre/Razón Social *</label>
+                        <input type="text" id="clientName" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="clientNIF">CIF/NIF *</label>
+                        <input type="text" id="clientNIF" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="clientAddress">Dirección *</label>
+                        <input type="text" id="clientAddress" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="clientEmail">Email *</label>
+                        <input type="email" id="clientEmail" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="amount">Importe (€) *</label>
+                        <input type="number" id="amount" step="0.01" min="0" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="invoiceNumber">Número de Factura *</label>
+                        <input type="text" id="invoiceNumber" placeholder="2025-001" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Concepto</label>
+                        <textarea id="description" rows="3" placeholder="Descripción del servicio o producto"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">Generar y Enviar Factura</button>
+                </form>
+            </section>
+
+            <!-- Mensaje de estado -->
+            <section id="statusMessage" class="status-message" style="display: none;"></section>
+        </main>
+
+        <footer>
+            <p>© 2025 Generador de Facturas - Powered by Tesseract.js, jsPDF, EmailJS & Baserow</p>
+        </footer>
+    </div>
+
+    <!-- Librerías -->
+    <script src="libs/tesseract.min.js"></script>
+    <script src="libs/jspdf.umd.min.js"></script>
+    <script src="libs/email.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
