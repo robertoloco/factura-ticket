@@ -19,6 +19,8 @@ model User {
   phone       String?
   userType    UserType @default(COMPANY) // Empresa o Cliente
   role        Role     @default(PROVIDER)
+  resetToken  String?
+  resetTokenExpiry DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

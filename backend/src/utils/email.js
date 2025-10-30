@@ -22,3 +22,23 @@ export const sendInvoiceEmail = async (invoice, pdfBuffer) => {
         }]
     });
 };
+
+export const sendPasswordResetEmail = async (email, resetUrl) => {
+    await transporter.sendMail({
+        from: `Factura Ticket <${process.env.GMAIL_USER}>`,
+        to: email,
+        subject: 'Recupera tu contraseña - Factura Ticket',
+        html: `
+            <h2>Recuperación de Contraseña</h2>
+            <p>Has solicitado restablecer tu contraseña.</p>
+            <p>Haz clic en el siguiente enlace para crear una nueva contraseña:</p>
+            <a href="${resetUrl}" style="display: inline-block; padding: 10px 20px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 5px; margin: 10px 0;">
+                Restablecer Contraseña
+            </a>
+            <p>O copia y pega este enlace en tu navegador:</p>
+            <p>${resetUrl}</p>
+            <p>Este enlace expirará en 1 hora.</p>
+            <p>Si no solicitaste este cambio, ignora este email.</p>
+        `
+    });
+};
