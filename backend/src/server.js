@@ -6,6 +6,7 @@ import clientRoutes from './routes/clients.js';
 import invoiceRoutes from './routes/invoices.js';
 import productRoutes from './routes/products.js';
 import companyRoutes from './routes/company.js';
+import companiesRoutes from './routes/companies.js';
 import dashboardRoutes from './routes/dashboard.js';
 
 dotenv.config();
@@ -27,6 +28,7 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/company', companyRoutes);
+app.use('/api/companies', companiesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Health check

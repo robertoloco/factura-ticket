@@ -13,6 +13,9 @@ const RequestInvoice = () => {
   const [ticketImage, setTicketImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [ocrData, setOcrData] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [companySearch, setCompanySearch] = useState('');
+  const [companyResults, setCompanyResults] = useState([]);
   const [clientData, setClientData] = useState({
     nif: user?.nif || '',
     name: user?.name || '',
@@ -29,6 +32,32 @@ const RequestInvoice = () => {
       setImagePreview(URL.createObjectURL(file));
       setError('');
     }
+  };
+
+  const searchCompanies = async (query) => {
+    if (query.length < 2) {
+      setCompanyResults([]);
+      return;
+    }
+
+    try {
+      const response = await api.get(`/api/companies/search?q=${encodeURIComponent(query)}`);
+      setCompanyResults(response.data);
+    } catch (err) {
+      console.error('Error searching companies:', err);
+    }
+  };
+
+  const handleCompanySearch = (e) => {
+    const query = e.target.value;
+    setCompanySearch(query);
+    searchCompanies(query);
+  };
+
+  const selectCompany = (company) => {
+    setSelectedCompany(company);
+    setCompanySearch(company.name);
+    setCompanyResults([]);
   };
 
   const handleOCR = async () => {
@@ -49,7 +78,14 @@ const RequestInvoice = () => {
       });
 
       setOcrData(response.data);
-      setStep(3);
+      
+      // Si el OCR detectó nombre de empresa, pre-buscar
+      if (response.data.companyName) {
+        setCompanySearch(response.data.companyName);
+        await searchCompanies(response.data.companyName);
+      }
+      
+      setStep(2);
     } catch (err) {
       setError(err.response?.data?.error || 'Error al procesar la imagen');
     } finally {
@@ -65,12 +101,18 @@ const RequestInvoice = () => {
   };
 
   const handleSubmit = async () => {
+    if (!selectedCompany) {
+      setError('Por favor selecciona una empresa');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
       const formData = new FormData();
       formData.append('ticketImage', ticketImage);
+      formData.append('companyId', selectedCompany.id);
       formData.append('clientData', JSON.stringify(clientData));
 
       const response = await api.post('/api/invoices/request', formData, {
@@ -107,14 +149,14 @@ const RequestInvoice = () => {
               <div className={`rounded-full h-8 w-8 flex items-center justify-center border-2 ${step >= 2 ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-400'}`}>
                 2
               </div>
-              <span className="ml-2 font-medium">Procesar</span>
+              <span className="ml-2 font-medium">Seleccionar Empresa</span>
             </div>
             <div className={`flex-1 h-1 mx-4 ${step >= 3 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
             <div className={`flex items-center ${step >= 3 ? 'text-blue-600' : 'text-gray-400'}`}>
               <div className={`rounded-full h-8 w-8 flex items-center justify-center border-2 ${step >= 3 ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-400'}`}>
                 3
               </div>
-              <span className="ml-2 font-medium">Confirmar</span>
+              <span className="ml-2 font-medium">Confirmar Datos</span>
             </div>
           </div>
         </div>
@@ -170,21 +212,95 @@ const RequestInvoice = () => {
           </div>
         )}
 
+        {/* Step 2: Select Company */}
+        {step === 2 && (
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4">2. Selecciona la empresa</h2>
+
+            {ocrData && ocrData.companyName && (
+              <div className="mb-4 bg-blue-50 p-3 rounded text-sm">
+                <span className="font-medium">Empresa detectada en el ticket:</span> {ocrData.companyName}
+              </div>
+            )}
+
+            <div className="mb-6 relative">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Buscar empresa
+              </label>
+              <input
+                type="text"
+                value={companySearch}
+                onChange={handleCompanySearch}
+                placeholder="Escribe el nombre de la empresa..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+              
+              {/* Results dropdown */}
+              {companyResults.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                  {companyResults.map((company) => (
+                    <button
+                      key={company.id}
+                      onClick={() => selectCompany(company)}
+                      className="w-full text-left px-4 py-3 hover:bg-gray-100 border-b last:border-b-0"
+                    >
+                      <div className="font-medium">{company.name}</div>
+                      <div className="text-sm text-gray-500">NIF: {company.nif}</div>
+                      <div className="text-xs text-gray-400">{company.address}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {selectedCompany && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded">
+                <h3 className="font-semibold text-green-800 mb-2">✓ Empresa seleccionada:</h3>
+                <div className="text-sm">
+                  <div><strong>{selectedCompany.name}</strong></div>
+                  <div>NIF: {selectedCompany.nif}</div>
+                  <div>{selectedCompany.address}</div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between">
+              <button
+                onClick={() => setStep(1)}
+                className="bg-gray-200 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-300"
+              >
+                Volver
+              </button>
+              <button
+                onClick={() => setStep(3)}
+                disabled={!selectedCompany}
+                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Continuar
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Step 3: Confirm Data */}
         {step === 3 && (
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold mb-4">3. Confirma los datos</h2>
 
+            {selectedCompany && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded">
+                <h3 className="font-semibold text-green-800 mb-2">✓ Factura solicitada a:</h3>
+                <div className="text-sm">
+                  <div><strong>{selectedCompany.name}</strong></div>
+                  <div>NIF: {selectedCompany.nif}</div>
+                </div>
+              </div>
+            )}
+
             {ocrData && (
               <div className="mb-6 bg-blue-50 p-4 rounded">
-                <h3 className="font-semibold mb-2">Datos extraídos del ticket:</h3>
+                <h3 className="font-semibold mb-2">Datos del ticket:</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Empresa:</span> {ocrData.companyName || 'No detectado'}
-                  </div>
-                  <div>
-                    <span className="font-medium">NIF Empresa:</span> {ocrData.companyNif || 'No detectado'}
-                  </div>
                   <div>
                     <span className="font-medium">Fecha:</span> {ocrData.date || 'No detectada'}
                   </div>

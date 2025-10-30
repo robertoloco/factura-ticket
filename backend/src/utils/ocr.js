@@ -114,19 +114,17 @@ export const extractTextFromImage = async (imageBuffer) => {
 
         const text = result.ParsedResults[0].ParsedText;
         
-        // Extraer todos los datos
-        const companyNif = extractNIF(text);
+        // Extraer datos esenciales
         const companyName = extractCompanyName(text);
         const date = extractDate(text);
         const amount = extractAmount(text);
         const items = extractItems(text);
 
         return {
-            companyNif,
-            companyName,
-            date,
-            amount,
-            items,
+            companyName,  // Para ayudar a buscar la empresa
+            date,         // Requerido
+            amount,       // Requerido
+            items,        // Opcional
             rawText: text,
             success: true
         };

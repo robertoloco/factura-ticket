@@ -43,31 +43,34 @@ const generateInvoiceNumber = async (companyId) => {
 router.post('/request', upload.single('ticketImage'), async (req, res) => {
     try {
         const { userId } = req.user;
-        const { clientData } = req.body;
+        const { clientData, companyId } = req.body;
         
         if (!req.file) {
             return res.status(400).json({ error: 'Ticket image is required' });
         }
 
+        if (!companyId) {
+            return res.status(400).json({ error: 'Company ID is required' });
+        }
+
         // 1. OCR - Extraer datos del ticket
         const ocrData = await extractTextFromImage(req.file.buffer);
         
-        if (!ocrData.companyNif || !ocrData.amount || !ocrData.date) {
+        if (!ocrData.amount || !ocrData.date) {
             return res.status(400).json({ 
-                error: 'No se pudieron extraer datos necesarios del ticket',
+                error: 'No se pudieron extraer datos necesarios del ticket (fecha y/o importe)',
                 ocrData 
             });
         }
 
-        // 2. Buscar empresa por NIF
+        // 2. Buscar empresa por ID
         const company = await prisma.company.findUnique({
-            where: { nif: ocrData.companyNif }
+            where: { id: companyId }
         });
 
         if (!company) {
             return res.status(404).json({ 
-                error: 'Empresa no registrada en la plataforma',
-                companyNif: ocrData.companyNif
+                error: 'Empresa no encontrada'
             });
         }
 
