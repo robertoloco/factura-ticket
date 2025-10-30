@@ -8,11 +8,11 @@ const router = express.Router();
 // Register
 router.post('/register', async (req, res) => {
     try {
-        const { email, password, name, company } = req.body;
+        const { email, password, name, nif, address, postalCode, phone, userType, company } = req.body;
 
         // Validations
-        if (!email || !password || !name) {
-            return res.status(400).json({ error: 'Email, password and name are required' });
+        if (!email || !password || !name || !nif || !address || !postalCode) {
+            return res.status(400).json({ error: 'Email, password, name, NIF, address and postal code are required' });
         }
 
         if (password.length < 6) {
@@ -28,22 +28,37 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'Email already registered' });
         }
 
+        // Check if NIF already exists
+        const existingNif = await prisma.user.findUnique({
+            where: { nif }
+        });
+
+        if (existingNif) {
+            return res.status(400).json({ error: 'NIF/CIF already registered' });
+        }
+
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user and company
+        // Create user and company (only for COMPANY type)
         const user = await prisma.user.create({
             data: {
                 email,
                 password: hashedPassword,
                 name,
-                company: company ? {
+                nif,
+                address,
+                postalCode,
+                phone: phone || null,
+                userType: userType || 'COMPANY',
+                company: (userType === 'COMPANY' || !userType) && company ? {
                     create: {
                         name: company.name,
-                        nif: company.nif,
-                        address: company.address,
-                        email: company.email,
-                        phone: company.phone
+                        nif: company.nif || nif,
+                        address: company.address || address,
+                        postalCode: company.postalCode || postalCode,
+                        email: company.email || email,
+                        phone: company.phone || phone || ''
                     }
                 } : undefined
             },
@@ -66,6 +81,8 @@ router.post('/register', async (req, res) => {
                 id: user.id,
                 email: user.email,
                 name: user.name,
+                nif: user.nif,
+                userType: user.userType,
                 company: user.company
             }
         });

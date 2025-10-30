@@ -9,17 +9,28 @@ datasource db {
 
 // Usuario (Proveedor que usa la plataforma)
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role     @default(PROVIDER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  name        String
+  nif         String   @unique
+  address     String
+  postalCode  String
+  phone       String?
+  userType    UserType @default(COMPANY) // Empresa o Cliente
+  role        Role     @default(PROVIDER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relaciones
-  company   Company?
-  invoices  Invoice[]
+  company            Company?
+  invoicesRequested  Invoice[] @relation("InvoiceRequester")  // Facturas solicitadas como cliente
+  invoicesApproved   Invoice[] @relation("InvoiceApprover")   // Facturas aprobadas como empresa
+}
+
+enum UserType {
+  COMPANY   // Usuario que factura (proveedores)
+  CLIENT    // Usuario que recibe facturas
 }
 
 enum Role {
@@ -29,19 +40,20 @@ enum Role {
 
 // Empresa/Negocio del proveedor
 model Company {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  name      String
-  nif       String   @unique
-  address   String
-  email     String
-  phone     String
-  logo      String?  // URL del logo
+  name       String
+  nif        String   @unique
+  address    String
+  postalCode String
+  email      String
+  phone      String
+  logo       String?  // URL del logo
   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Relaciones
   clients   Client[]
@@ -49,40 +61,57 @@ model Company {
   products  Product[]
 }
 
-// Clientes del proveedor
+// Clientes (registros creados al solicitar factura)
 model Client {
-  id        String   @id @default(uuid())
-  companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  userId     String?  // Usuario vinculado si es un usuario registrado
+  companyId  String   // Empresa a la que solicita facturas
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
-  name      String
-  nif       String
-  address   String
-  email     String
-  phone     String?
+  name       String
+  nif        String
+  address    String
+  postalCode String
+  email      String
+  phone      String?
   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Relaciones
   invoices  Invoice[]
 
   @@unique([companyId, nif]) // Un NIF único por empresa
+  @@index([userId])
 }
 
-// Facturas
+// Solicitudes de Factura
 model Invoice {
   id            String   @id @default(uuid())
-  number        String   // 2025-001
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  companyId     String
-  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  number        String?  // 2025-001 (generado al aprobar)
+  
+  // Cliente que solicita la factura
+  requesterId   String   // Usuario cliente que hace la solicitud
+  requester     User     @relation("InvoiceRequester", fields: [requesterId], references: [id])
   clientId      String
   client        Client   @relation(fields: [clientId], references: [id])
   
+  // Empresa que debe aprobar y facturar
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  approverId    String?  // Usuario empresa que aprueba
+  approver      User?    @relation("InvoiceApprover", fields: [approverId], references: [id])
+  
   date          DateTime @default(now())
-  dueDate       DateTime?
+  approvedAt    DateTime? // Fecha de aprobación
+  generatedAt   DateTime? // Fecha de generación del PDF
+  
+  // Datos del ticket original (para validación de unicidad)
+  ticketDate    DateTime?  // Fecha del ticket escaneado
+  ticketAmount  Float?     // Importe del ticket
+  ticketHash    String?    @unique // Hash de fecha+importe para evitar duplicados
+  ticketImageUrl String?   // URL de la imagen del ticket
+  ocrData       Json?      // Datos completos extraídos por OCR
   
   // Conceptos y montos
   description   String?
@@ -91,10 +120,9 @@ model Invoice {
   taxAmount     Float    // Monto de IVA
   totalAmount   Float    // Total con IVA
   
-  // Estado
-  status        InvoiceStatus @default(DRAFT)
-  paid          Boolean  @default(false)
-  paidDate      DateTime?
+  // Estado del flujo
+  status        InvoiceStatus @default(PENDING)
+  rejectionReason String?  // Razón de rechazo si aplica
   
   // Archivos
   pdfUrl        String?  // URL del PDF generado
@@ -106,14 +134,17 @@ model Invoice {
   items         InvoiceItem[]
 
   @@unique([companyId, number]) // Número único por empresa
-  @@index([companyId, date])
+  @@unique([companyId, ticketHash]) // Un ticket único por empresa
+  @@index([companyId, status])
+  @@index([requesterId, status])
   @@index([clientId])
 }
 
 enum InvoiceStatus {
-  DRAFT     // Borrador
-  SENT      // Enviada
-  PAID      // Pagada
+  PENDING   // Solicitud pendiente de aprobación
+  APPROVED  // Aprobada por la empresa
+  REJECTED  // Rechazada por la empresa
+  GENERATED // PDF generado y enviado
   CANCELLED // Cancelada
 }
 
