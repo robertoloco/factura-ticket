@@ -4,10 +4,10 @@
 
 const CONFIG = {
     // OCR.space API - Obtén tu API key gratis en https://ocr.space/ocrapi
-    ocrApiKey: 'K84401806388957',  // API Key gratuita (25,000 requests/mes)
+    ocrApiKey: 'K88796806988957',  // API Key gratuita (25,000 requests/mes)
     
-    // Web3Forms - Obtén tu Access Key gratis en https://web3forms.com
-    web3formsKey: '1e2404a9-8e95-4f07-9150-7614624d90f8',  // Reemplaza con tu Access Key
+    // Formspree - Obtén tu Form ID gratis en https://formspree.io
+    formspreeID: 'TU_FORMSPREE_ID',  // Ej: 'xwpezpzp' (50 submissions/mes gratis)
     
     // Baserow - Obtén estos valores de tu cuenta Baserow
     baserow: {
@@ -134,8 +134,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('extractBtn').addEventListener('click', extractTextFromImage);
     document.getElementById('invoiceForm').addEventListener('submit', handleFormSubmit);
     
-    // Autocompletar al escribir NIF
-    document.getElementById('clientNIF').addEventListener('blur', autofillClientData);
+    // Autocompletar al escribir NIF (con debounce)
+    const nifInput = document.getElementById('clientNIF');
+    nifInput.addEventListener('input', debounceNIFCheck);
+    nifInput.addEventListener('blur', autofillClientData);
 });
 
 // ============================================
@@ -362,58 +364,64 @@ function generateInvoicePDF(data) {
 }
 
 // ============================================
-// ENVÍO DE EMAIL CON Web3Forms
+// ENVÍO DE EMAIL CON Formspree (CON PDF ADJUNTO)
 // ============================================
 
 async function sendInvoiceByEmail(pdfDoc, data) {
     try {
-        // Crear FormData
-        const formData = new FormData();
-        formData.append('access_key', CONFIG.web3formsKey);
-        formData.append('subject', `Factura ${data.invoiceNumber} - ${CONFIG.company.name}`);
-        formData.append('from_name', CONFIG.company.name);
-        formData.append('email', data.clientEmail);  // Email del cliente (destinatario)
-        formData.append('name', data.clientName);
+        // Convertir PDF a Blob
+        const pdfBlob = pdfDoc.output('blob');
         
         // Calcular total con IVA
         const iva = (parseFloat(data.amount) * 0.21).toFixed(2);
         const total = (parseFloat(data.amount) + parseFloat(iva)).toFixed(2);
         
-        // Mensaje del email (SIN ADJUNTO)
-        const message = `
-Estimado/a ${data.clientName},
+        // Crear FormData
+        const formData = new FormData();
+        formData.append('email', data.clientEmail);  // Email del cliente (destinatario)
+        formData.append('_replyto', CONFIG.company.email);  // Tu email para respuestas
+        formData.append('_subject', `Factura ${data.invoiceNumber} - ${CONFIG.company.name}`);
+        formData.append('name', data.clientName);
+        
+        // Mensaje del email
+        const message = `Estimado/a ${data.clientName},
 
-Se ha generado la factura número ${data.invoiceNumber} con fecha ${data.date}.
+Adjuntamos la factura número ${data.invoiceNumber} con fecha ${data.date}.
 
 Detalles de la factura:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Número: ${data.invoiceNumber}
+Número de Factura: ${data.invoiceNumber}
+Cliente: ${data.clientName}
+NIF/CIF: ${data.clientNIF}
 Concepto: ${data.description || 'Servicios prestados'}
 Base Imponible: ${data.amount}€
 IVA (21%): ${iva}€
 TOTAL: ${total}€
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-El PDF de la factura se ha descargado automáticamente en su navegador.
-
 Saludos cordiales,
 ${CONFIG.company.name}
 ${CONFIG.company.email}
-${CONFIG.company.phone}
-        `;
+${CONFIG.company.phone}`;
         
         formData.append('message', message);
+        
+        // ADJUNTAR PDF
+        formData.append('file', pdfBlob, `Factura_${data.invoiceNumber}.pdf`);
 
-        // Enviar email (SIN ADJUNTO para evitar cobro)
-        const response = await fetch('https://api.web3forms.com/submit', {
+        // Enviar email con Formspree
+        const response = await fetch(`https://formspree.io/f/${CONFIG.formspreeID}`, {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers: {
+                'Accept': 'application/json'
+            }
         });
 
         const result = await response.json();
 
-        if (!result.success) {
-            throw new Error(result.message || 'Error al enviar el email');
+        if (!response.ok) {
+            throw new Error(result.error || 'Error al enviar el email');
         }
 
         return true;

@@ -14,13 +14,30 @@
         </header>
 
         <main>
+            <!-- Sección de carga de ticket -->
+            <section class="card">
+                <h2>1. Subir Ticket (Opcional)</h2>
+                <p class="section-hint">Toma una foto o sube imagen para extraer importe y concepto</p>
+                <div class="upload-area">
+                    <label for="ticketImage" class="file-label">
+                        📷 Tomar Foto / Subir Archivo
+                    </label>
+                    <input type="file" id="ticketImage" accept="image/*" />
+                    <button id="extractBtn" class="btn btn-primary">Extraer Datos del Ticket</button>
+                </div>
+                <div id="ocrProgress" class="progress-bar" style="display: none;">
+                    <div class="progress-fill"></div>
+                    <span class="progress-text">Procesando imagen...</span>
+                </div>
+            </section>
+
             <!-- Formulario de datos del cliente -->
             <section class="card">
-                <h2>1. Datos del Cliente</h2>
+                <h2>2. Datos del Cliente</h2>
                 <form id="invoiceForm">
                     <div class="form-group">
                         <label for="clientNIF">CIF/NIF * (Escribe aquí primero)</label>
-                        <input type="text" id="clientNIF" placeholder="Ej: 12345678Z" required autofocus />
+                        <input type="text" id="clientNIF" placeholder="Ej: 12345678Z" required />
                         <small class="hint">💡 Si ya existe, autocompletará los datos</small>
                     </div>
 
@@ -56,20 +73,6 @@
 
                     <button type="submit" class="btn btn-success">Generar y Enviar Factura</button>
                 </form>
-            </section>
-
-            <!-- Sección de carga de ticket -->
-            <section class="card">
-                <h2>2. Subir Ticket (Opcional)</h2>
-                <p class="section-hint">Extrae automáticamente el importe y concepto del ticket</p>
-                <div class="upload-area">
-                    <input type="file" id="ticketImage" accept="image/*" capture="environment" />
-                    <button id="extractBtn" class="btn btn-primary">📷 Extraer Datos del Ticket</button>
-                </div>
-                <div id="ocrProgress" class="progress-bar" style="display: none;">
-                    <div class="progress-fill"></div>
-                    <span class="progress-text">Procesando imagen...</span>
-                </div>
             </section>
 
             <!-- Mensaje de estado -->
