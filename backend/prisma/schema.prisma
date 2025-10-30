@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Usuario (Proveedor que usa la plataforma)
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(PROVIDER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  company   Company?
+  invoices  Invoice[]
+}
+
+enum Role {
+  PROVIDER  // Proveedor (tu copistería, otros negocios)
+  ADMIN     // Administrador de la plataforma
+}
+
+// Empresa/Negocio del proveedor
+model Company {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name      String
+  nif       String   @unique
+  address   String
+  email     String
+  phone     String
+  logo      String?  // URL del logo
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  clients   Client[]
+  invoices  Invoice[]
+  products  Product[]
+}
+
+// Clientes del proveedor
+model Client {
+  id        String   @id @default(uuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  name      String
+  nif       String
+  address   String
+  email     String
+  phone     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  invoices  Invoice[]
+
+  @@unique([companyId, nif]) // Un NIF único por empresa
+}
+
+// Facturas
+model Invoice {
+  id            String   @id @default(uuid())
+  number        String   // 2025-001
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id])
+  
+  date          DateTime @default(now())
+  dueDate       DateTime?
+  
+  // Conceptos y montos
+  description   String?
+  baseAmount    Float    // Base imponible
+  taxRate       Float    @default(21.0) // IVA por defecto 21%
+  taxAmount     Float    // Monto de IVA
+  totalAmount   Float    // Total con IVA
+  
+  // Estado
+  status        InvoiceStatus @default(DRAFT)
+  paid          Boolean  @default(false)
+  paidDate      DateTime?
+  
+  // Archivos
+  pdfUrl        String?  // URL del PDF generado
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  items         InvoiceItem[]
+
+  @@unique([companyId, number]) // Número único por empresa
+  @@index([companyId, date])
+  @@index([clientId])
+}
+
+enum InvoiceStatus {
+  DRAFT     // Borrador
+  SENT      // Enviada
+  PAID      // Pagada
+  CANCELLED // Cancelada
+}
+
+// Items/Líneas de factura
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  
+  description String
+  quantity    Float    @default(1.0)
+  unitPrice   Float
+  discount    Float    @default(0.0)
+  totalPrice  Float    // quantity * unitPrice * (1 - discount/100)
+  
+  createdAt   DateTime @default(now())
+}
+
+// Productos/Servicios del proveedor
+model Product {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  price       Float
+  taxRate     Float    @default(21.0)
+  active      Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  invoiceItems InvoiceItem[]
+
+  @@index([companyId, active])
+}
