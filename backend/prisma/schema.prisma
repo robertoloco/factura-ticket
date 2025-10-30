@@ -13,9 +13,9 @@ model User {
   email       String   @unique
   password    String
   name        String
-  nif         String   @unique
-  address     String
-  postalCode  String
+  nif         String?  @unique
+  address     String?
+  postalCode  String?
   phone       String?
   userType    UserType @default(COMPANY) // Empresa o Cliente
   role        Role     @default(PROVIDER)
